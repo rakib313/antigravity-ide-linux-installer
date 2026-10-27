@@ -1,0 +1,72 @@
+# Maintainer: Rakib <58782592+rakib313@users.noreply.github.com>
+pkgname=antigravity-ide-bin
+pkgver=1.107.0
+pkgrel=1
+pkgdesc="Google Antigravity agent control surface and code editor"
+arch=('x86_64')
+url="https://github.com/rakib313/antigravity-ide-linux-installer"
+license=('custom')
+depends=('gtk3' 'libsecret' 'nss' 'alsa-lib' 'libxkbfile')
+optdepends=(
+    'imagemagick: multi-resolution icon scaling'
+    'python-nautilus: right-click integration for GNOME Nautilus'
+)
+provides=('antigravity-ide')
+conflicts=('antigravity-ide')
+# Place your downloaded "Antigravity IDE.tar.gz" in the same folder before building
+source=("local://Antigravity IDE.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+    cd "$srcdir"
+    local appdir="$pkgdir/opt/antigravity-ide"
+    mkdir -p "$appdir" "$pkgdir/usr/bin" "$pkgdir/usr/share/applications"
+
+    cp -a "Antigravity IDE/." "$appdir/"
+    
+    # CLI symlinks
+    ln -sf "/opt/antigravity-ide/bin/antigravity-ide" "$pkgdir/usr/bin/antigravity-ide"
+    ln -sf "/opt/antigravity-ide/bin/antigravity-ide" "$pkgdir/usr/bin/agy-ide"
+
+    # Desktop Launcher
+    cat > "$pkgdir/usr/share/applications/antigravity-ide.desktop" <<EOF
+[Desktop Entry]
+Name=Antigravity IDE
+Comment=Code editor
+GenericName=Text Editor
+Exec=/opt/antigravity-ide/antigravity-ide %F
+Icon=antigravity-ide
+Terminal=false
+Type=Application
+StartupNotify=true
+StartupWMClass=antigravity-ide
+Categories=Development;IDE;
+MimeType=text/plain;inode/directory;application/x-antigravity-ide-workspace;x-scheme-handler/antigravity-ide;
+Keywords=vscode;code;antigravity;ide;editor;
+Actions=new-empty-window;
+
+[Desktop Action new-empty-window]
+Name=New Empty Window
+Exec=/opt/antigravity-ide/antigravity-ide --new-window %F
+Icon=antigravity-ide
+EOF
+
+    # Icon
+    if [ -f "$appdir/resources/app/resources/linux/code.png" ]; then
+        mkdir -p "$pkgdir/usr/share/icons/hicolor/512x512/apps"
+        install -m644 "$appdir/resources/app/resources/linux/code.png" \
+            "$pkgdir/usr/share/icons/hicolor/512x512/apps/antigravity-ide.png"
+    fi
+
+    # Completions
+    if [ -f "$appdir/resources/completions/bash/antigravity-ide" ]; then
+        mkdir -p "$pkgdir/usr/share/bash-completion/completions"
+        install -m644 "$appdir/resources/completions/bash/antigravity-ide" \
+            "$pkgdir/usr/share/bash-completion/completions/antigravity-ide"
+    fi
+    if [ -f "$appdir/resources/completions/zsh/_antigravity-ide" ]; then
+        mkdir -p "$pkgdir/usr/share/zsh/site-functions"
+        install -m644 "$appdir/resources/completions/zsh/_antigravity-ide" \
+            "$pkgdir/usr/share/zsh/site-functions/_antigravity-ide"
+    fi
+}

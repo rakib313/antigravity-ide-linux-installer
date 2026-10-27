@@ -26,6 +26,8 @@ rm -f "$HOME/.local/share/bash-completion/completions/antigravity-ide"
 rm -f "$HOME/.local/share/bash-completion/completions/agy-ide"
 rm -f "$HOME/.local/share/zsh/site-functions/_antigravity-ide"
 rm -f "$HOME/.local/share/zsh/site-functions/_agy-ide"
+rm -f "$HOME/.local/share/fish/vendor_completions.d/antigravity-ide.fish"
+rm -f "$HOME/.local/share/fish/vendor_completions.d/agy-ide.fish"
 
 # 5. Remove MIME package
 rm -f "$HOME/.local/share/mime/packages/antigravity-ide.xml"
@@ -33,6 +35,7 @@ rm -f "$HOME/.local/share/mime/packages/antigravity-ide.xml"
 # 6. Remove File Manager integrations
 rm -f "$HOME/.local/share/nemo/actions/antigravity-ide.nemo_action"
 rm -f "$HOME/.local/share/kservices5/ServiceMenus/antigravity-ide.desktop"
+rm -f "$HOME/.local/share/kio/servicemenus/antigravity-ide.desktop"
 rm -f "$HOME/.local/share/nautilus-python/extensions/antigravity-ide.py"
 
 if [ -f "$HOME/.config/Thunar/uca.xml" ]; then

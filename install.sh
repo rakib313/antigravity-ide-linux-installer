@@ -3,13 +3,14 @@
 # Antigravity IDE Linux Installer
 # https://github.com/rakib313/antigravity-ide-linux-installer
 #
-# A complete, automated, user-local installer for Google Antigravity IDE on Linux.
+# A complete, automated, distro-agnostic installer for Google Antigravity IDE.
+# Compatible with Ubuntu, Linux Mint, Debian, Fedora, Arch Linux, openSUSE, etc.
 # Configures:
 #   - Safe installation to ~/Applications/antigravity-ide
 #   - CLI wrappers in ~/.local/bin (antigravity-ide and agy-ide)
-#   - Multi-resolution icon suite (16px to 512px)
+#   - Multi-resolution icon suite (16px to 512px + 1024px)
 #   - Freedesktop-compliant .desktop launcher with search keywords
-#   - Shell completions for Bash and Zsh
+#   - Shell completions for Bash, Zsh, and Fish
 #   - URL scheme handler (antigravity-ide://) & workspace MIME registration
 #   - File manager right-click integration (Thunar, Nautilus, Nemo, Dolphin)
 #   - AppArmor sandbox detection (Ubuntu 24.04+ compatible, 100% rootless on others)
@@ -107,8 +108,28 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo -e "${C_BOLD}Google Antigravity IDE — Linux Installer${C_RESET}"
-echo -e "============================================"
+echo -e "${C_BOLD}Google Antigravity IDE — Universal Linux Installer${C_RESET}"
+echo -e "=================================================="
+
+# --- Distribution detection ---------------------------------------------------
+DISTRO_NAME="Linux"
+PKG_MGR="apt"
+if [ -f /etc/os-release ]; then
+    DISTRO_NAME="$(grep -E '^PRETTY_NAME=' /etc/os-release | cut -d= -f2 | tr -d '"' || echo "Linux")"
+    DISTRO_ID="$(grep -E '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"' || echo "")"
+    DISTRO_LIKE="$(grep -E '^ID_LIKE=' /etc/os-release | cut -d= -f2 | tr -d '"' || echo "")"
+    
+    if [[ "$DISTRO_ID" == *"fedora"* ]] || [[ "$DISTRO_LIKE" == *"rhel"* ]] || [[ "$DISTRO_LIKE" == *"fedora"* ]]; then
+        PKG_MGR="dnf"
+    elif [[ "$DISTRO_ID" == *"arch"* ]] || [[ "$DISTRO_LIKE" == *"arch"* ]]; then
+        PKG_MGR="pacman"
+    elif [[ "$DISTRO_ID" == *"suse"* ]] || [[ "$DISTRO_LIKE" == *"suse"* ]]; then
+        PKG_MGR="zypper"
+    else
+        PKG_MGR="apt"
+    fi
+fi
+log_info "Detected OS: ${C_BOLD}${DISTRO_NAME}${C_RESET} (package manager: ${PKG_MGR})"
 
 # --- Source auto-detection ----------------------------------------------------
 find_source() {
@@ -235,7 +256,8 @@ fi
 # Check PATH
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     log_warn "$BIN_DIR is not currently in your \$PATH."
-    log_info "Add this line to your ~/.bashrc or ~/.zshrc: export PATH=\"\$HOME/.local/bin:\$PATH\""
+    log_info "Add this line to your shell configuration file (~/.bashrc, ~/.zshrc):"
+    log_info "  export PATH=\"\$HOME/.local/bin:\$PATH\""
 fi
 
 # --- 3. Icon Suite Generation -------------------------------------------------
@@ -311,7 +333,7 @@ profile ${PROFILE_NAME} \"$DEST_DIR/antigravity-ide\" flags=(unconfined) {
         EXEC_LINE="\"$DEST_DIR/antigravity-ide\" --no-sandbox %F"
     fi
 else
-    log_ok "User namespaces enabled; Chromium sandbox runs securely without sudo."
+    log_ok "User namespaces enabled; Chromium sandbox runs securely without root/sudo."
 fi
 
 # --- 5. Desktop Launcher ------------------------------------------------------
@@ -345,8 +367,9 @@ DESK_EOF
 update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
 log_ok "Desktop entry installed: $DESKTOP_FILE"
 
-# --- 6. Shell Auto-Completions ------------------------------------------------
+# --- 6. Shell Auto-Completions (Bash, Zsh, Fish) ------------------------------
 log_step "Installing shell completions"
+
 # Bash
 BASH_COMP_DIR="${HOME}/.local/share/bash-completion/completions"
 if [ -f "$DEST_DIR/resources/completions/bash/antigravity-ide" ]; then
@@ -364,6 +387,26 @@ if [ -f "$DEST_DIR/resources/completions/zsh/_antigravity-ide" ]; then
     ln -sf "_antigravity-ide" "$ZSH_COMP_DIR/_agy-ide"
     log_ok "Zsh completion installed."
 fi
+
+# Fish
+FISH_COMP_DIR="${HOME}/.local/share/fish/vendor_completions.d"
+mkdir -p "$FISH_COMP_DIR"
+cat > "$FISH_COMP_DIR/antigravity-ide.fish" <<'FISH_EOF'
+complete -c antigravity-ide -s d -l diff -d "Compare two files" -r
+complete -c antigravity-ide -s a -l add -d "Add folder to last active window" -r
+complete -c antigravity-ide -s g -l goto -d "Open file at line and column" -r
+complete -c antigravity-ide -s n -l new-window -d "Open a new window"
+complete -c antigravity-ide -s r -l reuse-window -d "Force opening in current window"
+complete -c antigravity-ide -s w -l wait -d "Wait for files to close"
+complete -c antigravity-ide -s v -l version -d "Print version"
+complete -c antigravity-ide -s h -l help -d "Print help"
+complete -c antigravity-ide -l install-extension -d "Install VSIX extension" -r
+complete -c antigravity-ide -l list-extensions -d "List installed extensions"
+complete -c antigravity-ide -l disable-gpu -d "Disable GPU acceleration"
+complete -c agy-ide -w antigravity-ide
+FISH_EOF
+ln -sf "antigravity-ide.fish" "$FISH_COMP_DIR/agy-ide.fish" 2>/dev/null || true
+log_ok "Fish completion installed."
 
 # --- 7. MIME & Protocol Handlers ----------------------------------------------
 log_step "Registering MIME types and URL protocols"
@@ -384,7 +427,7 @@ xdg-mime default antigravity-ide.desktop x-scheme-handler/antigravity-ide 2>/dev
 xdg-mime default antigravity-ide.desktop application/x-antigravity-ide-workspace 2>/dev/null || true
 log_ok "Registered antigravity-ide:// and .antigravity-workspace handlers."
 
-# --- 8. File Manager Integration ----------------------------------------------
+# --- 8. File Manager Integration (Distro-Agnostic) ----------------------------
 log_step "Configuring file manager right-click integration"
 
 # XFCE / Thunar
@@ -435,11 +478,13 @@ NEMO_EOF
     log_ok "Added Nemo (Cinnamon) action."
 fi
 
-# KDE / Dolphin
-if command -v dolphin >/dev/null 2>&1 || [ -d "${HOME}/.local/share/kservices5" ]; then
-    KDE_DIR="${HOME}/.local/share/kservices5/ServiceMenus"
-    mkdir -p "$KDE_DIR"
-    cat > "$KDE_DIR/antigravity-ide.desktop" <<KDE_EOF
+# KDE Plasma 5 & Plasma 6 / Dolphin
+if command -v dolphin >/dev/null 2>&1 || [ -d "${HOME}/.local/share/kservices5" ] || [ -d "${HOME}/.local/share/kio" ]; then
+    # Support both KDE Plasma 6 (~/.local/share/kio/servicemenus) and Plasma 5 (~/.local/share/kservices5/ServiceMenus)
+    for kde_sub in "kio/servicemenus" "kservices5/ServiceMenus"; do
+        KDE_DIR="${HOME}/.local/share/$kde_sub"
+        mkdir -p "$KDE_DIR"
+        cat > "$KDE_DIR/antigravity-ide.desktop" <<KDE_EOF
 [Desktop Entry]
 Type=Service
 ServiceTypes=KonqPopupMenu/Plugin
@@ -452,14 +497,22 @@ Name=Open in Antigravity IDE
 Icon=antigravity-ide
 Exec=antigravity-ide %F
 KDE_EOF
-    log_ok "Added Dolphin (KDE) ServiceMenu."
+    done
+    log_ok "Added Dolphin (KDE Plasma 5 & 6) ServiceMenu."
 fi
 
-# GNOME / Nautilus
-if command -v nautilus >/dev/null 2>&1 && dpkg -s python3-nautilus >/dev/null 2>&1; then
-    NAUTILUS_DIR="${HOME}/.local/share/nautilus-python/extensions"
-    mkdir -p "$NAUTILUS_DIR"
-    cat > "$NAUTILUS_DIR/antigravity-ide.py" <<'NAUTILUS_PYEOF'
+# GNOME / Nautilus (Distro-Agnostic via Python GObject-Introspection check)
+if command -v nautilus >/dev/null 2>&1; then
+    HAS_NAUTILUS_PYTHON=0
+    if python3 -c "import gi; gi.require_version('Nautilus', '4.0')" 2>/dev/null || \
+       python3 -c "import gi; gi.require_version('Nautilus', '3.0')" 2>/dev/null; then
+        HAS_NAUTILUS_PYTHON=1
+    fi
+
+    if [ "$HAS_NAUTILUS_PYTHON" -eq 1 ]; then
+        NAUTILUS_DIR="${HOME}/.local/share/nautilus-python/extensions"
+        mkdir -p "$NAUTILUS_DIR"
+        cat > "$NAUTILUS_DIR/antigravity-ide.py" <<'NAUTILUS_PYEOF'
 import os, subprocess
 from urllib.parse import unquote, urlparse
 import gi
@@ -486,7 +539,16 @@ class OpenInAntigravity(GObject.GObject, Nautilus.MenuProvider):
         item.connect("activate", lambda *_: subprocess.Popen([BINARY, path], start_new_session=True))
         return [item]
 NAUTILUS_PYEOF
-    log_ok "Added Nautilus (GNOME) extension."
+        log_ok "Added Nautilus (GNOME) extension."
+    else
+        log_info "Nautilus detected. To enable top-level right-click menu, install the Python binding:"
+        case "$PKG_MGR" in
+            dnf)    log_info "  sudo dnf install nautilus-python" ;;
+            pacman) log_info "  sudo pacman -S python-nautilus" ;;
+            zypper) log_info "  sudo zypper in python3-nautilus" ;;
+            *)      log_info "  sudo apt install python3-nautilus" ;;
+        esac
+    fi
 fi
 
 # --- 9. Uninstaller Deployment -----------------------------------------------
@@ -505,9 +567,12 @@ rm -f "$HOME/.local/share/bash-completion/completions/antigravity-ide"
 rm -f "$HOME/.local/share/bash-completion/completions/agy-ide"
 rm -f "$HOME/.local/share/zsh/site-functions/_antigravity-ide"
 rm -f "$HOME/.local/share/zsh/site-functions/_agy-ide"
+rm -f "$HOME/.local/share/fish/vendor_completions.d/antigravity-ide.fish"
+rm -f "$HOME/.local/share/fish/vendor_completions.d/agy-ide.fish"
 rm -f "$HOME/.local/share/mime/packages/antigravity-ide.xml"
 rm -f "$HOME/.local/share/nemo/actions/antigravity-ide.nemo_action"
 rm -f "$HOME/.local/share/kservices5/ServiceMenus/antigravity-ide.desktop"
+rm -f "$HOME/.local/share/kio/servicemenus/antigravity-ide.desktop"
 rm -f "$HOME/.local/share/nautilus-python/extensions/antigravity-ide.py"
 
 if [ -f "$HOME/.config/Thunar/uca.xml" ]; then
