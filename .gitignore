@@ -1,0 +1,22 @@
+# Antigravity binaries and archives
+*.tar.gz
+*.tar.xz
+*.zip
+*.tar
+Antigravity*/
+antigravity*/
+
+# Debian packages & build staging
+*.deb
+build/
+staging/
+debian/.debhelper/
+*.substvars
+files/
+
+# Temporary files & logs
+*.tmp
+*.log
+.DS_Store
+*.swp
+*~
